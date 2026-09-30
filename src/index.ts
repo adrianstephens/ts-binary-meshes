@@ -5,6 +5,7 @@ export { OBJ, readMtl, type Statement } from './obj';
 export { PLY } from './ply';
 export { AMF } from './amf';
 export { ThreeMF } from './threemf';
+export { DXF, DWG } from './cad';
 
 import { Format } from './common';
 import { STL } from './stl';
@@ -13,8 +14,9 @@ import { OBJ } from './obj';
 import { PLY } from './ply';
 import { AMF } from './amf';
 import { ThreeMF } from './threemf';
+import { DXF, DWG } from './cad';
 
-export const formats: Format[] = [STL, OFF, OBJ, PLY, AMF, ThreeMF];
+export const formats: Format[] = [STL, OFF, OBJ, PLY, AMF, ThreeMF, DXF, DWG];
 
 // by extension (with its dot, any case)
 export function formatOf(ext: string) {

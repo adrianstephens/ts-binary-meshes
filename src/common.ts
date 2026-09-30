@@ -80,23 +80,23 @@ function newell(points: float3[], face: number[]) {
 	return face.reduce((n, i, k) => n.add(points[i].cross(points[face[(k + 1) % face.length]])), float3(0, 0, 0));
 }
 
-// A face's triangles, as indices into points, by ear clipping in the plane of its Newell normal, so a concave face is
-// cut as it is drawn. When no ear is left the rest has no area, and is fanned.
-function triangulate(points: float3[], face: number[]): number[][] {
+// A face's triangles, as indices of its corners (0 its first), by ear clipping in the plane of its Newell normal, so a
+// concave face is cut as it is drawn. When no ear is left the rest has no area, and is fanned.
+export function faceTriangles({points}: Mesh, face: number[]): number[][] {
 	if (face.length === 3)
-		return [face];
+		return [[0, 1, 2]];
 	const n		= newell(points, face);
 	const a		= Math.abs(n.x) > Math.abs(n.y) ? (Math.abs(n.x) > Math.abs(n.z) ? 'x' : 'z') : (Math.abs(n.y) > Math.abs(n.z) ? 'y' : 'z');
 	const [u, v] = a === 'x' ? ['y', 'z'] as const : a === 'y' ? ['z', 'x'] as const : ['x', 'y'] as const;
 	const flip	= n[a] < 0 ? -1 : 1;
-	const p2	= (i: number) => ({u: points[i][u], v: points[i][v] * flip});
+	const p2	= (k: number) => ({u: points[face[k]][u], v: points[face[k]][v] * flip});
 	const cross	= (o: number, b: number, c: number) => {
 		const [P, Q, R] = [o, b, c].map(p2);
 		return (Q.u - P.u) * (R.v - P.v) - (Q.v - P.v) * (R.u - P.u);
 	};
 	const inside = (i: number, a: number, b: number, c: number) => cross(a, b, i) >= 0 && cross(b, c, i) >= 0 && cross(c, a, i) >= 0;
 
-	const ring = [...face], tris: number[][] = [];
+	const ring = face.map((_, k) => k), tris: number[][] = [];
 	while (ring.length > 3) {
 		const k = ring.findIndex((b, k) => {
 			const a = ring[(k + ring.length - 1) % ring.length], c = ring[(k + 1) % ring.length];
@@ -110,8 +110,9 @@ function triangulate(points: float3[], face: number[]): number[][] {
 	return [...tris, ring];
 }
 
+// every face's triangles, as indices into points
 export function triangles(mesh: Mesh) {
-	return mesh.faces.flatMap(f => triangulate(mesh.points, f));
+	return mesh.faces.flatMap(f => faceTriangles(mesh, f).map(t => t.map(k => f[k])));
 }
 
 export function faceNormal(mesh: Mesh, face: number[]): float3 {

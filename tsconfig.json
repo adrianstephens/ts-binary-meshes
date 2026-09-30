@@ -2,7 +2,8 @@
 	"compilerOptions": {
 		"composite": true,
 		"target": "esnext",
-		"module": "commonjs",
+		"module": "nodenext",
+	    "moduleResolution": "nodenext",
 		"strict": true,
 		"declaration": true,
 		"stripInternal": true,
@@ -30,6 +31,7 @@
 	"references": [
 		{ "path": "../binary" },
 		{ "path": "../binary-archives" },
+		{ "path": "../dwg" },
 		{ "path": "../maths" }
 	]
 }

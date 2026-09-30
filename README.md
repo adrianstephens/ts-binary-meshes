@@ -29,7 +29,7 @@ const mesh = await formatOf('.3mf')!.load(bytes);        // = flatten(await read
 fs.writeFileSync('part.stl', STL.save(mesh));
 ```
 
-`read` and `load` return a `Promise` for AMF and 3MF (either can be zipped); the others return directly. Malformed
+`read` and `load` return a `Promise` for AMF, 3MF (either can be zipped) and DWG; the others return directly. Malformed
 files throw an `Error` saying what is wrong with them.
 
 ## Supported File Types
@@ -42,6 +42,8 @@ files throw an `Error` saying what is wrong with them.
 | PLY | `.ply` | ASCII, binary little- and big-endian; every element and property | binary little-endian |
 | AMF | `.amf` | plain or zipped; objects, volumes, materials, textures, constellations | plain |
 | 3MF | `.3mf` | core, materials, production and beam lattice extensions; every part of the package | one object |
+| DXF | `.dxf` | 3D faces, polyface and polygon meshes, 3D lines, blocks and inserts (via @isopodlabs/dwg) | |
+| DWG | `.dwg` | as DXF, R13 to R2018 | |
 
 Writers take a `Mesh`'s geometry (and OFF its vertex colours). STL, AMF and 3MF are written as triangles cut by ear
 clipping, so concave faces come out right.
@@ -72,6 +74,14 @@ clipping, so concave faces come out right.
   their layers, and each triangle's `pid`/`p1..p3` as written; beam lattices as lines and `properties.beamlattice`.
   `extras`: the model and build attributes, every relationship, the thumbnail, every part's bytes, and every model
   part's XML (less the elements read into meshes) for anything else, such as slices.
+- **DXF** and **DWG**: model space as the built object, the active paper space as another, and a block per object;
+  each mesh of its `3DFACE`s (invisible edges in `properties.invisibleEdges`), polyface meshes and polygon meshes
+  (closed, and surface-fitted, as their flags say), with its `LINE`s and 3D polylines as lines. `INSERT`s (and each
+  cell of a `MINSERT`) are instances, placed by base point, scale, rotation and extrusion. Colours per face: true
+  colour, colour index, or the layer's; `BYBLOCK` is left none. Layers as face sets, each face's entity handle in
+  `properties.handle`, `$INSUNITS` as the unit. `extras.document` is the whole drawing as @isopodlabs/dwg reads it (2D
+  curves, text, dimensions and all), `extras.entities` counts the entities not made into meshes or lines, and
+  `extras.unsupported` those not read (for a DWG, modeler geometry kept in its AcDs section).
 
 ## API
 

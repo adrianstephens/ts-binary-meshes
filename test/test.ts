@@ -38,7 +38,7 @@ async function throws(f: () => unknown, what: string) {
 }
 
 (async () => {
-	for (const f of formats) {
+	for (const f of formats.filter(f => f.save)) {
 		const saved = await f.save!(box);
 		check(f.check(saved), `${f.extensions[0]}: check of its own output`);
 		check(formatOf(f.extensions[0].toUpperCase()) === f, `${f.extensions[0]}: formatOf`);

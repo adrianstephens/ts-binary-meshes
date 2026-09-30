@@ -1,6 +1,7 @@
 // What each reader gives besides geometry: attributes, materials, textures, hierarchy, metadata and extras
 import { float3 } from '@isopodlabs/maths/vector';
-import { Model, Mesh, flatten, placed, STL, OFF, OBJ, PLY, AMF, ThreeMF } from '../dist/index';
+import { Model, Mesh, flatten, placed, STL, OFF, OBJ, PLY, AMF, ThreeMF, DXF, DWG } from '../dist/index';
+import { existsSync, readFileSync } from 'fs';
 import { makeZip } from '../dist/zip';
 
 let bad = 0, checks = 0;
@@ -236,6 +237,69 @@ const tri: Mesh = {points: [float3(0, 0, 0), float3(1, 0, 0), float3(0, 1, 0), f
 		eq([m.build.length, m.build[0].properties!.partnumber, m.build[0].properties!['p:UUID'], (m.extras.build as any)['p:UUID']], [2, 'X', 'i-1', 'b-1'], '3MF build');
 		eq([[...(m.extras.thumbnail as any).data], m.objects.length], [[8], 4], '3MF thumbnail and objects');
 		eq(placed(m.build).length, 3, '3MF placed meshes');
+	}
+
+	//--- DXF and DWG ------------------------------------------------------------------------------------------------
+	{
+		// entities as group codes and values; points as 10/20/30 (and 11..13/21..23/31..33 for the others)
+		const pt = (n: number, [x, y, z]: number[]) => [10 + n, x, 20 + n, y, 30 + n, z];
+		const entity = (type: string, ...groups: (string | number)[]) => [0, type, ...groups];
+		const face = (corners: number[][], ...groups: (string | number)[]) => entity('3DFACE', 8, '0', ...groups, ...corners.flatMap((c, i) => pt(i, c)));
+		const vertex = (flags: number, p: number[], ...groups: (string | number)[]) => entity('VERTEX', 8, 'red', 70, flags, ...pt(0, p), ...groups);
+		const doc = [
+			0, 'SECTION', 2, 'HEADER', 9, '$INSUNITS', 70, 4, 0, 'ENDSEC',
+			0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LAYER',
+			0, 'LAYER', 2, '0', 70, 0, 62, 7, 0, 'LAYER', 2, 'red', 70, 0, 62, 1,
+			0, 'ENDTAB', 0, 'ENDSEC',
+			0, 'SECTION', 2, 'BLOCKS',
+			0, 'BLOCK', 8, '0', 2, 'tri', 70, 0, ...pt(0, [1, 0, 0]), ...face([[1, 0, 0], [2, 0, 0], [1, 1, 0], [1, 1, 0]]), 0, 'ENDBLK',
+			0, 'ENDSEC',
+			0, 'SECTION', 2, 'ENTITIES',
+			...face([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], 70, 1).map(g => g === '0' ? 'red' : g),
+			...face([[0, 0, 1], [1, 0, 1], [0, 1, 1], [0, 1, 1]], 62, 3),
+			...face([[0, 0, 2], [1, 0, 2], [0, 1, 2], [0, 1, 2]], 420, 0x123456),
+			...face([[0, 0, 3], [1, 0, 3], [0, 1, 3], [0, 1, 3]], 67, 1),
+			...entity('POLYLINE', 8, 'red', 66, 1, 70, 64, 71, 4, 72, 1, ...pt(0, [0, 0, 0])),
+			...[[0, 0, 4], [1, 0, 4], [1, 1, 4], [0, 1, 4]].flatMap(p => vertex(192, p)),
+			...vertex(128, [0, 0, 0], 71, 1, 72, 2, 73, -3, 74, 4, 62, 5), 0, 'SEQEND',
+			...entity('POLYLINE', 8, 'red', 66, 1, 70, 17, 71, 3, 72, 2, ...pt(0, [0, 0, 0])),
+			...[[0, 0, 5], [0, 1, 5], [1, 0, 5], [1, 1, 5], [2, 0, 5], [2, 1, 5]].flatMap(p => vertex(64, p)), 0, 'SEQEND',
+			...entity('POLYLINE', 8, 'red', 66, 1, 70, 9, ...pt(0, [0, 0, 0])),
+			...[[0, 0, 6], [1, 0, 6], [0, 1, 6]].flatMap(p => vertex(32, p)), 0, 'SEQEND',
+			...entity('LINE', 8, '0', ...pt(0, [0, 0, 7]), ...pt(1, [1, 0, 7])),
+			...entity('INSERT', 8, '0', 2, 'tri', ...pt(0, [10, 0, 0]), 41, 2, 42, 2, 43, 2, 50, 90),
+			...entity('INSERT', 8, '0', 2, 'tri', ...pt(0, [0, 20, 0]), 70, 2, 44, 5),
+			...entity('CIRCLE', 8, '0', ...pt(0, [0, 0, 0]), 40, 1),
+			0, 'ENDSEC', 0, 'EOF',
+		].join('\n');
+		const m = DXF.read(encode(doc));
+		const model = m.objects[0], mesh = model.mesh!;
+		eq([m.unit, model.name, m.objects.map(o => o.name)], ['millimeter', '*Model_Space', ['*Model_Space', 'tri', '*Paper_Space']], 'DXF objects');
+		eq(mesh.faces.map(f => f.length), [4, 3, 3, 4, 4, 4, 4], 'DXF faces: 3DFACEs (a quad, triangles), polyface, closed 3x2 mesh');
+		eq(mesh.faces.slice(3).map(f => f.map(i => vec(mesh.points[i]))), [
+			['0,0,4', '1,0,4', '1,1,4', '0,1,4'],
+			['0,0,5', '0,1,5', '1,1,5', '1,0,5'], ['1,0,5', '1,1,5', '2,1,5', '2,0,5'], ['2,0,5', '2,1,5', '0,1,5', '0,0,5'],
+		], 'DXF polyface and polygon mesh corners');
+		eq(mesh.faces.map((_, i) => vec(at(mesh.colors, i))), ['1,0,0,1', '0,1,0,1', '0.0706,0.2039,0.3373,1', '0,0,1,1', '1,0,0,1', '1,0,0,1', '1,0,0,1'],
+			'DXF colours: BYLAYER, ACI, true colour, a polyface face record\'s own');
+		eq((mesh.properties!.invisibleEdges as any).values, [1, 0, 0, 4, 0, 0, 0], 'DXF invisible edges');
+		eq(mesh.faceSets!.layer, {red: [0, 3, 4, 5, 6], 0: [1, 2]}, 'DXF layers');
+		eq(mesh.lines!.map(l => l.map(i => vec(mesh.points[i]))), [['0,0,6', '1,0,6', '0,1,6', '0,0,6'], ['0,0,7', '1,0,7']], 'DXF 3D polyline (closed) and LINE');
+		eq([model.children.length, (m.extras.entities as any).CIRCLE], [3, 1], 'DXF inserts (a 2x1 MINSERT is two) and what is not mesh');
+		eq(m.objects[2].mesh!.faces.length, 1, 'DXF paper space, not built');
+		// tri's base point to the origin, scaled 2, turned 90, moved to (10, 0, 0); the MINSERT's second cell 5 along x
+		const flat = flatten(m).points.map(vec);
+		check(['10,0,0', '10,2,0', '8,0,0'].every(p => flat.includes(p)), `DXF insert transform: ${flat.slice(-9)}`);
+		check(['5,20,0', '6,20,0', '5,21,0'].every(p => flat.includes(p)), 'DXF MINSERT cell');
+
+		// a DWG of the same drawing gives what its DXF does
+		const dir = '/Volumes/DevSSD/dev/github/libredwg/test/test-data';
+		if (existsSync(`${dir}/example_2004.dwg`)) {
+			const [a, b] = [DXF.read(readFileSync(`${dir}/example_2004.dxf`)), await DWG.read(readFileSync(`${dir}/example_2004.dwg`))];
+			const shape = (x: Model) => [x.unit, placed(x.build).length, flatten(x).faces.length, flatten(x).points.map(vec).sort(),
+				x.objects[0].mesh!.faces.map((_, i) => vec(at(x.objects[0].mesh!.colors, i)))];
+			eq(shape(b), shape(a), 'DWG as its DXF');
+		}
 	}
 
 	console.log(bad ? `${bad} of ${checks} failed` : `all information read (${checks} checks)`);
