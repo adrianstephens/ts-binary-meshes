@@ -1,0 +1,42 @@
+{
+	"name": "@isopodlabs/binary_meshes",
+	"description": "A package for reading and writing various 3D mesh file formats with TypeScript.",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/adrianstephens/ts-binary-meshes.git"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist/**/*.{js,d.ts}",
+		"README.md"
+	],
+	"scripts": {
+		"build": "../node_modules/.bin/tsc",
+		"watch": "tsc --watch -p ./",
+		"lint": "eslint \"src/**/*.ts\"",
+		"test": "npx ts-node -P test/tsconfig.json test/test.ts && npx ts-node -P test/tsconfig.json test/info.ts",
+		"link": "npm link @isopodlabs/binary @isopodlabs/binary_archives @isopodlabs/maths @isopodlabs/xml",
+		"update": "npm install @isopodlabs/binary@latest @isopodlabs/binary_archives@latest @isopodlabs/maths@latest @isopodlabs/xml@latest"
+	},
+	"keywords": [
+		"binary",
+		"typescript",
+		"mesh",
+		"stl",
+		"obj",
+		"off",
+		"ply",
+		"amf",
+		"3mf"
+	],
+	"author": "Adrian Stephens",
+	"license": "MIT",
+	"version": "0.1.0",
+	"dependencies": {
+		"@isopodlabs/binary": "^2.0.1",
+		"@isopodlabs/binary_archives": "^0.1.0",
+		"@isopodlabs/maths": "^1.0.0",
+		"@isopodlabs/xml": "^1.2.0"
+	}
+}
